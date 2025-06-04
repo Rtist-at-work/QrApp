@@ -312,23 +312,7 @@
           let cnv = p.createCanvas(300, 300);
           p.noLoop();
 
-          const downloadBtn = document.createElement("button");
-          downloadBtn.innerText = "Download QR";
-          downloadBtn.style.padding = "10px 20px";
-          downloadBtn.style.background = "#28a745";
-          downloadBtn.style.color = "#fff";
-          downloadBtn.style.border = "none";
-          downloadBtn.style.borderRadius = "5px";
-          downloadBtn.style.cursor = "pointer";
-          downloadBtn.style.fontSize = "16px";
-          downloadBtn.style.marginTop = "15px";
-
-          downloadBtn.onclick = () => {
-            p.saveCanvas("qr_with_bg", "png");
-          };
-
-          cnv.parent().appendChild(downloadBtn); // Add below the canvas
-
+          
           // Create and style the form
           const form = document.createElement("form");
           form.id = "addressForm";
@@ -463,7 +447,7 @@
               contact: contactInput.value,
               qrImage: imageDataUrl, // base64 image string
             };
-            console.log(payload);
+   
             const formData = new FormData();
             formData.append("name", JSON.stringify(nameInput.value));
             formData.append("contact", JSON.stringify(contactInput.value));
@@ -475,26 +459,29 @@
             try {
               // 3. Send to backend (adjust URL to your API endpoint)
               console.log(originalToken);
-           const response = await fetch(`http://192.168.1.9:4000/QrGenerator/`, {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${originalToken}`, // Token goes here
-    // Do NOT set Content-Type manually when using FormData
-  },
-  body: formData, // This is where formData should go
-});
-
+              const response = await fetch(
+                `http://192.168.1.9:4000/QrGenerator/`,
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${originalToken}`, // Token goes here
+                    // Do NOT set Content-Type manually when using FormData
+                  },
+                  body: formData, // This is where formData should go
+                }
+              );
 
               if (response.ok) {
                 alert("Form and QR image sent successfully!");
-                // optionally reset form here
                 form.reset();
+                window.location.href =
+                  "https://machinestreets.com/mechanicApp/MechanicList_2";
               } else {
-                alert("Failed to send data to backend.");
+                const errorData = await response.json(); // Parse error response
+                alert(errorData?.message || JSON.stringify(errorData));
               }
-            } catch (error) {
-              console.log(error);
-              alert("Error sending data: " + error.message);
+            } catch (err) {
+              alert(err.message || "An error occurred");
             }
           };
 
