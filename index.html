@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Machine Streets</title>
+    <style>
+      body {
+        background: #f9f5f0;
+        font-family: "Poppins", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: #4e342e;
+        padding: 20px;
+      }
+      h2 {
+        text-align: center;
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #bf360c; /* rich deep orange */
+        margin-bottom: 25px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        text-shadow: 1px 1px 3px #ffcc80;
+      }
+
+      canvas {
+        display: block;
+        margin: 20px auto 10px auto;
+        border: 1px solid #ccc;
+      }
+
+      #nextBtn {
+        display: block;
+        margin: 10px auto 30px auto;
+        padding: 10px 20px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      #nextBtn:hover {
+        background-color: #0056b3;
+      }
+
+      .below-canvas {
+        max-width: 400px;
+        margin: 30px auto 40px auto;
+        padding: 20px 25px;
+        background: #fff8dc; /* light warm cream */
+        border-left: 6px solid #ff9800; /* bright orange accent */
+        box-shadow: 0 4px 12px rgba(255, 152, 0, 0.25);
+        border-radius: 10px;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: #5d4037; /* dark brown text */
+      }
+      .below-canvas h3 {
+        margin-bottom: 12px;
+        font-weight: 700;
+        font-size: 1.5rem;
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+        color: #bf360c; /* deeper orange/red */
+        text-align: center;
+      }
+      .below-canvas p {
+        font-size: 1.1rem;
+        line-height: 1.5;
+        text-align: center;
+      }
+      #popup {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      }
+      body,
+      input,
+      textarea,
+      button,
+      select {
+        font-family: "Poppins", sans-serif;
+      }
+
+      #popupContent {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        max-width: 90vw;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      #popupCanvas {
+        border: 1px solid #ccc;
+        cursor: grab;
+      }
+
+      #uploadBtn {
+        margin-top: 15px;
+        padding: 8px 20px;
+        background: #4caf50;
+        border: none;
+        color: white;
+        font-size: 16px;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+
+      #uploadBtn:hover {
+        background: #45a049;
+      }
+      #imgInput {
+        display: block;
+        margin: 0 auto 30px auto;
+        padding: 10px 15px;
+        border-radius: 8px;
+        border: 2px solid #ff9800;
+        background: #fff3e0;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: border-color 0.3s ease;
+      }
+      #imgInput:hover {
+        border-color: #bf360c;
+      }
+      #generateQRBtn {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="below-canvas">
+      <h3>Note</h3>
+      <p>
+        This QR will be delivered to you as a physical board. Please ensure your
+        photo is properly centered before submission.
+      </p>
+    </div>
+    <h2>Generate Your Business Qr</h2>
+    <input type="file" id="imgInput" accept="image/*" />
+    <br /><br />
+    <button id="generateQRBtn" disabled>
+      Generate QR (Using Cropped Image)
+    </button>
+    <div id="popup">
+      <div id="popupContent">
+        <div id="popupContainer"></div>
+        <button id="uploadBtn">Upload</button>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins&display=swap"
+      rel="stylesheet"
+    />
+
+    <script>
+      let mainP5, popupP5;
+      let img;
+      let croppedImage;
+      let originalToken;
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const encryptedToken = urlParams.get("token");
+
+      const secretKey = "gguguvgvuv"; // same as above
+      if (encryptedToken) {
+        const bytes = CryptoJS.AES.decrypt(encryptedToken, secretKey);
+        originalToken = bytes.toString(CryptoJS.enc.Utf8);
+        console.log(originalToken);
+      }
+
+      let selection = { x: 50, y: 50, size: 200 };
+      let dragging = false;
+      let dragOffset = { x: 0, y: 0 };
+
+      const popup = document.getElementById("popup");
+      const popupContainer = document.getElementById("popupContainer");
+      const imgInput = document.getElementById("imgInput");
+      const uploadBtn = document.getElementById("uploadBtn");
+      const generateQRBtn = document.getElementById("generateQRBtn");
+
+      imgInput.addEventListener("change", (e) => {
+        if (e.target.files.length === 0) return;
+        const file = e.target.files[0];
+        const url = URL.createObjectURL(file);
+        loadImageInPopup(url);
+      });
+
+      function loadImageInPopup(url) {
+        if (popupP5) {
+          popupP5.remove();
+          popupP5 = null;
+        }
+
+        popupP5 = new p5((p) => {
+          p.setup = () => {
+            p.pixelDensity(1);
+            p.createCanvas(500, 500);
+            p.loadImage(url, (loadedImg) => {
+              img = loadedImg;
+              let scale = Math.min(500 / img.width, 500 / img.height, 1);
+              p.resizeCanvas(img.width * scale, img.height * scale);
+              selection.size = Math.min(p.width, p.height) / 2;
+              selection.x = (p.width - selection.size) / 2;
+              selection.y = (p.height - selection.size) / 2;
+              p.redraw();
+            });
+          };
+
+          p.draw = () => {
+            if (!img) return;
+            p.clear();
+            p.image(img, 0, 0, p.width, p.height);
+            p.noFill();
+            p.stroke(0, 255, 0);
+            p.strokeWeight(3);
+            p.drawingContext.setLineDash([6, 6]);
+            p.rect(selection.x, selection.y, selection.size, selection.size);
+            p.drawingContext.setLineDash([]);
+          };
+
+          let resizing = false;
+          const handleSize = 20;
+
+          p.mousePressed = () => {
+            if (
+              p.mouseX >= selection.x + selection.size - handleSize &&
+              p.mouseX <= selection.x + selection.size + handleSize &&
+              p.mouseY >= selection.y + selection.size - handleSize &&
+              p.mouseY <= selection.y + selection.size + handleSize
+            ) {
+              resizing = true;
+              p.canvas.style.cursor = "nwse-resize";
+              return;
+            }
+
+            if (
+              p.mouseX > selection.x &&
+              p.mouseX < selection.x + selection.size &&
+              p.mouseY > selection.y &&
+              p.mouseY < selection.y + selection.size
+            ) {
+              dragging = true;
+              dragOffset.x = p.mouseX - selection.x;
+              dragOffset.y = p.mouseY - selection.y;
+              p.canvas.style.cursor = "grabbing";
+            }
+          };
+
+          p.mouseDragged = () => {
+            if (resizing) {
+              let newSize = Math.max(
+                20,
+                Math.min(p.width - selection.x, p.mouseX - selection.x)
+              );
+              newSize = Math.min(newSize, p.height - selection.y);
+              selection.size = newSize;
+              p.redraw();
+            } else if (dragging) {
+              let newX = p.mouseX - dragOffset.x;
+              let newY = p.mouseY - dragOffset.y;
+              newX = Math.min(Math.max(0, newX), p.width - selection.size);
+              newY = Math.min(Math.max(0, newY), p.height - selection.size);
+              selection.x = newX;
+              selection.y = newY;
+              p.redraw();
+            }
+          };
+
+          p.mouseReleased = () => {
+            dragging = false;
+            resizing = false;
+            p.canvas.style.cursor = "grab";
+          };
+        }, popupContainer);
+
+        popup.style.display = "flex";
+      }
+
+      uploadBtn.addEventListener("click", () => {
+        if (!img || !popupP5) return;
+        const scaleX = img.width / popupP5.width;
+        const scaleY = img.height / popupP5.height;
+        const cropX = Math.floor(selection.x * scaleX);
+        const cropY = Math.floor(selection.y * scaleY);
+        const cropSize = Math.floor(selection.size * scaleX);
+        croppedImage = img.get(cropX, cropY, cropSize, cropSize);
+        popup.style.display = "none";
+        popupP5.remove();
+        popupP5 = null;
+        generateQRBtn.disabled = false;
+        if (mainP5) {
+          mainP5.redraw();
+        }
+      });
+
+      mainP5 = new p5((p) => {
+        p.setup = () => {
+          let cnv = p.createCanvas(300, 300);
+          p.noLoop();
+
+          const downloadBtn = document.createElement("button");
+          downloadBtn.innerText = "Download QR";
+          downloadBtn.style.padding = "10px 20px";
+          downloadBtn.style.background = "#28a745";
+          downloadBtn.style.color = "#fff";
+          downloadBtn.style.border = "none";
+          downloadBtn.style.borderRadius = "5px";
+          downloadBtn.style.cursor = "pointer";
+          downloadBtn.style.fontSize = "16px";
+          downloadBtn.style.marginTop = "15px";
+
+          downloadBtn.onclick = () => {
+            p.saveCanvas("qr_with_bg", "png");
+          };
+
+          cnv.parent().appendChild(downloadBtn); // Add below the canvas
+
+          // Create and style the form
+          const form = document.createElement("form");
+          form.id = "addressForm";
+          form.style.marginTop = "25px";
+          form.style.display = "flex";
+          form.style.flexDirection = "column";
+          form.style.alignItems = "center";
+          form.style.gap = "18px";
+          form.style.padding = "25px 30px";
+          form.style.border = "1.5px solid #e0a800"; // warm amber border
+          form.style.borderRadius = "12px";
+          form.style.boxShadow = "0 8px 20px rgba(224, 168, 0, 0.25)";
+          form.style.maxWidth = "350px";
+          form.style.marginLeft = "auto";
+          form.style.marginRight = "auto";
+          form.style.backgroundColor = "#fff9e6"; // soft cream background
+          form.style.fontFamily =
+            "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+
+          const createInput = (type, placeholder, required = true) => {
+            const input = document.createElement("input");
+            input.type = type;
+            input.placeholder = placeholder;
+            input.required = required;
+            input.style.width = "100%";
+            input.style.padding = "12px 15px";
+            input.style.border = "1.8px solid #f0ad4e"; // lighter amber border
+            input.style.borderRadius = "8px";
+            input.style.fontSize = "15px";
+            input.style.transition =
+              "border-color 0.3s ease, box-shadow 0.3s ease";
+            input.style.outline = "none";
+
+            input.onfocus = () => {
+              input.style.borderColor = "#d48806"; // deeper amber on focus
+              input.style.boxShadow = "0 0 8px #d48806";
+            };
+            input.onblur = () => {
+              input.style.borderColor = "#f0ad4e";
+              input.style.boxShadow = "none";
+            };
+
+            return input;
+          };
+
+          const createTextarea = (placeholder, required = true) => {
+            const textarea = document.createElement("textarea");
+            textarea.placeholder = placeholder;
+            textarea.required = required;
+            textarea.rows = 3;
+            textarea.style.width = "100%";
+            textarea.style.padding = "12px 15px";
+            textarea.style.border = "1.8px solid #f0ad4e";
+            textarea.style.borderRadius = "8px";
+            textarea.style.fontSize = "15px";
+            textarea.style.transition =
+              "border-color 0.3s ease, box-shadow 0.3s ease";
+            textarea.style.outline = "none";
+
+            textarea.onfocus = () => {
+              textarea.style.borderColor = "#d48806";
+              textarea.style.boxShadow = "0 0 8px #d48806";
+            };
+            textarea.onblur = () => {
+              textarea.style.borderColor = "#f0ad4e";
+              textarea.style.boxShadow = "none";
+            };
+
+            return textarea;
+          };
+
+          const nameInput = createInput("text", "Full Name");
+          const addressInput = createTextarea("Address");
+          const contactInput = createInput("tel", "Contact Number");
+          contactInput.pattern = "[0-9]{10}";
+
+          const submitBtn = document.createElement("button");
+          submitBtn.type = "submit";
+          submitBtn.innerText = "Submit";
+          submitBtn.style.padding = "12px 30px";
+          submitBtn.style.background = "#e67e22"; // rich orange
+          submitBtn.style.color = "#fff";
+          submitBtn.style.border = "none";
+          submitBtn.style.borderRadius = "25px";
+          submitBtn.style.cursor = "pointer";
+          submitBtn.style.fontSize = "16px";
+          submitBtn.style.fontWeight = "600";
+          submitBtn.style.boxShadow = "0 6px 15px rgba(230, 126, 34, 0.6)";
+          submitBtn.style.transition =
+            "background 0.3s ease, box-shadow 0.3s ease";
+
+          submitBtn.onmouseover = () => {
+            submitBtn.style.background = "#d35400"; // darker orange
+            submitBtn.style.boxShadow = "0 8px 20px rgba(211, 84, 0, 0.75)";
+          };
+          submitBtn.onmouseleave = () => {
+            submitBtn.style.background = "#e67e22";
+            submitBtn.style.boxShadow = "0 6px 15px rgba(230, 126, 34, 0.6)";
+          };
+
+          form.appendChild(nameInput);
+          form.appendChild(addressInput);
+          form.appendChild(contactInput);
+          form.appendChild(submitBtn);
+          form.onsubmit = async (e) => {
+            e.preventDefault();
+
+            // 1. Get the canvas image (assuming mainP5 is your p5 instance)
+            const canvas = document.querySelector("canvas"); // or mainP5.canvas
+            const imageDataUrl = p.canvas.toDataURL("image/png"); // base64 image string
+
+            function dataURLToFile(dataUrl, filename) {
+              const arr = dataUrl.split(",");
+              const mime = arr[0].match(/:(.*?);/)[1];
+              const bstr = atob(arr[1]);
+              let n = bstr.length;
+              const u8arr = new Uint8Array(n);
+
+              while (n--) u8arr[n] = bstr.charCodeAt(n);
+
+              return new File([u8arr], filename, { type: mime });
+            }
+
+            const file = dataURLToFile(imageDataUrl, "qr_with_bg.png");
+
+            // Then append to FormData: formData.append("qrImage", file);
+
+            // 2. Prepare form data
+            const payload = {
+              name: nameInput.value,
+              address: addressInput.value,
+              contact: contactInput.value,
+              qrImage: imageDataUrl, // base64 image string
+            };
+            console.log(payload);
+            const formData = new FormData();
+            formData.append("name", JSON.stringify(nameInput.value));
+            formData.append("contact", JSON.stringify(contactInput.value));
+            formData.append("address", JSON.stringify(addressInput.value));
+            ["0"].map(() => {
+              formData.append("images", file);
+            });
+
+            try {
+              // 3. Send to backend (adjust URL to your API endpoint)
+              console.log(originalToken);
+           const response = await fetch(`http://192.168.1.9:4000/QrGenerator/`, {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${originalToken}`, // Token goes here
+    // Do NOT set Content-Type manually when using FormData
+  },
+  body: formData, // This is where formData should go
+});
+
+
+              if (response.ok) {
+                alert("Form and QR image sent successfully!");
+                // optionally reset form here
+                form.reset();
+              } else {
+                alert("Failed to send data to backend.");
+              }
+            } catch (error) {
+              console.log(error);
+              alert("Error sending data: " + error.message);
+            }
+          };
+
+          cnv.parent().appendChild(form);
+        };
+
+        p.draw = () => {
+          p.background(220);
+          if (!croppedImage) {
+            p.fill(100);
+            p.textAlign(p.CENTER, p.CENTER);
+            p.text(
+              "Select and upload an image crop to generate QR",
+              p.width / 2,
+              p.height / 2
+            );
+            return;
+          }
+
+          croppedImage.loadPixels();
+          const w = croppedImage.width;
+          const h = croppedImage.height;
+          const sampleX = 2;
+          const sampleY = 2;
+
+          for (let x = 0; x < p.width; x += sampleX) {
+            for (let y = 0; y < p.height; y += sampleY) {
+              let sx = Math.floor(p.map(x, 0, p.width, 0, w));
+              let sy = Math.floor(p.map(y, 0, p.height, 0, h));
+              let idx = (sx + sy * w) * 4;
+              let r = croppedImage.pixels[idx];
+              let g = croppedImage.pixels[idx + 1];
+              let b = croppedImage.pixels[idx + 2];
+              p.fill(r, g, b);
+              p.noStroke();
+              p.ellipse(x, y, sampleX, sampleY);
+            }
+          }
+
+          drawQR(p);
+        };
+      });
+
+      generateQRBtn.addEventListener("click", () => {
+        if (!croppedImage) return;
+        mainP5.redraw();
+      });
+
+      function drawQR(p) {
+        let qr = qrcode(3, "H");
+        qr.addData("https://example.com");
+        qr.make();
+
+        const modules = qr.getModuleCount();
+        const cellSize = p.width / modules;
+        const centerSize = Math.floor(modules * 0.3);
+        const start = Math.floor((modules - centerSize) / 2);
+        const end = start + centerSize;
+
+        for (let row = 0; row < modules; row++) {
+          for (let col = 0; col < modules; col++) {
+            const inCenter =
+              col >= start && col < end && row >= start && row < end;
+            if (qr.isDark(row, col)) {
+              if (inCenter && (row + col) % 2 === 0) continue;
+              p.fill(0);
+              p.noStroke();
+              p.rect(
+                col * cellSize + cellSize * 0.1,
+                row * cellSize + cellSize * 0.1,
+                cellSize * 0.8,
+                cellSize * 0.8
+              );
+            }
+          }
+        }
+      }
+    </script>
+  </body>
+</html>
