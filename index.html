@@ -14,9 +14,19 @@
         font-size: 2.2rem;
         font-weight: 700;
         color: #bf360c; /* rich deep orange */
-        margin-bottom: 25px;
+        /* margin-bottom: 25px; */
         letter-spacing: 1.5px;
         text-transform: uppercase;
+        text-shadow: 1px 1px 3px #ffcc80;
+      }
+      p {
+        text-align: center;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #bf360c; /* rich deep orange */
+        margin-bottom: 25px;
+        letter-spacing: 1.5px;
+        /* text-transform: uppercase; */
         text-shadow: 1px 1px 3px #ffcc80;
       }
 
@@ -145,6 +155,10 @@
       </p>
     </div>
     <h2>Generate Your Business Qr</h2>
+    <p>
+      Please add background image with white background for better scanning
+      experience
+    </p>
     <input type="file" id="imgInput" accept="image/*" />
     <br /><br />
     <button id="generateQRBtn" disabled>
@@ -312,7 +326,6 @@
           let cnv = p.createCanvas(300, 300);
           p.noLoop();
 
-          
           // Create and style the form
           const form = document.createElement("form");
           form.id = "addressForm";
@@ -447,7 +460,7 @@
               contact: contactInput.value,
               qrImage: imageDataUrl, // base64 image string
             };
-   
+
             const formData = new FormData();
             formData.append("name", JSON.stringify(nameInput.value));
             formData.append("contact", JSON.stringify(contactInput.value));
@@ -460,7 +473,7 @@
               // 3. Send to backend (adjust URL to your API endpoint)
               console.log(originalToken);
               const response = await fetch(
-                `http://192.168.1.9:4000/QrGenerator/`,
+                `https://api.machinestreets.com/QrGenerator/`,
                 {
                   method: "POST",
                   headers: {
@@ -476,7 +489,8 @@
                 form.reset();
                 window.location.href =
                   "https://machinestreets.com/mechanicApp/MechanicList_2";
-              } else {
+              }
+               else {
                 const errorData = await response.json(); // Parse error response
                 alert(errorData?.message || JSON.stringify(errorData));
               }
