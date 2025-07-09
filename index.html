@@ -479,8 +479,8 @@
               // 3. Send to backend (adjust URL to your API endpoint)
 
               const response = await fetch(
-                `http://192.168.1.8:5000/QrGenerator/${userId}`,
-                // `https://api.machinestreets.com/QrGenerator/${userId}`,
+                // `http://192.168.1.8:5000/QrGenerator/${userId}`,
+                `https://api.machinestreets.com/QrGenerator/${userId}`,
                 {
                   method: "POST",
                   // headers: {
