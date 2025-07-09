@@ -242,12 +242,24 @@
             if (!img) return;
             p.clear();
             p.image(img, 0, 0, p.width, p.height);
+
+            // Draw the dotted green selection box
             p.noFill();
             p.stroke(0, 255, 0);
             p.strokeWeight(3);
             p.drawingContext.setLineDash([6, 6]);
             p.rect(selection.x, selection.y, selection.size, selection.size);
             p.drawingContext.setLineDash([]);
+
+            // Green dot handle in bottom-right corner
+            p.fill(0, 255, 0);
+            p.noStroke();
+            p.ellipse(
+              selection.x + selection.size,
+              selection.y + selection.size,
+              20,
+              20
+            );
           };
 
           let resizing = false;
