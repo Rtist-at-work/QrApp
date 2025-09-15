@@ -484,15 +484,15 @@
             formData.append("contact", JSON.stringify(contactInput.value));
             formData.append("address", JSON.stringify(addressInput.value));
             ["0"].map(() => {
-              formData.append("images", file);
+              formData.append("media", file);
             });
 
             try {
               // 3. Send to backend (adjust URL to your API endpoint)
 
               const response = await fetch(
-                // `http://192.168.1.8:5000/QrGenerator/${userId}`,
-                `https://api.machinestreets.com/QrGenerator/${userId}`,
+                //  `http://192.168.1.10:5000/api/postQr/${userId}`,
+                `https://api.machinestreets.com/api/postQr/${userId}`,
                 {
                   method: "POST",
                   // headers: {
